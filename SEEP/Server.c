@@ -17,6 +17,7 @@
 #include <unistd.h>
 #include <errno.h>
 #include <string.h>
+#include <tomcrypt.h>
 #include "Common.h"
 
 int main(int argc, char *argv[])
@@ -53,50 +54,50 @@ int main(int argc, char *argv[])
 		return -1;
 	}
 
-    while(1)
-    {
-    	unsigned char recvBuff[1024];
-    	memset(recvBuff,0,sizeof(recvBuff));
+while(1)
+{
+	connfd = accept(listenfd, (struct sockaddr*)NULL, NULL);
+	
+	/* { resiveNonceA start } */
+	unsigned char recvBuff[1024];
+	unsigned long msgLength;
+	msgLength = recv(connfd, recvBuff, sizeof(recvBuff),0);
+	printf("Received nonceA\n");
+	int nonceA;
+	unsigned long inLength = sizeof(int);
+	ecc_decrypt(recvBuff,msgLength,(unsigned char*)&nonceA,&inLength,&decryptKey);
+	printf("nonceA = %i\n",nonceA);
+	/* { resiveNonceA end } */
+	
+	/* { sendSessionKey start } */
+	struct SessionKey sKey;
+	sKey.nonceA = nonceA+1;
+	sKey.key = randomNumber();
+	unsigned char sKey_enc[2048];
+	unsigned long outLength = 2048;
+	ecc_encrypt((unsigned char*)&sKey, sizeof(struct SessionKey), sKey_enc, &outLength, &encryptKey);
+	printf("Sending sKey, nonceA = %i, key = %i\n", sKey.nonceA, sKey.key);
+	write(connfd, sKey_enc, outLength);
+	/* { sendSessionKey end } */
 
-    	connfd = accept(listenfd, (struct sockaddr*)NULL, NULL);
+	my_aes_setup(sKey.key);
+	int newNonceA;
+	msgLength = recv(connfd, recvBuff, sizeof(recvBuff),0);
+	aes_decrypt(recvBuff,msgLength, (unsigned char*)&newNonceA, sizeof(int));
+	printf("Received newNonceA = %i\n",newNonceA);
 
-        unsigned long msgLength;
-        msgLength = socketRecive(connfd,recvBuff);
-        printf("Received message\n");
-        printCharArray(recvBuff, msgLength);
-        int nonceA;
-        unsigned long inLength = sizeof(int);
-        ecc_decrypt(recvBuff,msgLength,(unsigned char*)&nonceA,&inLength,&decryptKey);
-
-        printf("recived: %i\n",nonceA);
-
-        struct SessionKey sKey;
-        sKey.nonceA = nonceA+1;
-        sKey.key = randomNumber();
-
-        unsigned char sKey_enc[2048];
-        unsigned long outLength = 2048;
-        ecc_encrypt((unsigned char*)&sKey, sizeof(struct SessionKey), sKey_enc, &outLength, &encryptKey);
-        printf("Sending sKey, nonceA = %i, key = %i\n", sKey.nonceA, sKey.key);
-        write(connfd, sKey_enc, outLength);
-
-        my_aes_setup(sKey.key);
-        int newNonceA;
-        msgLength = socketRecive(connfd,recvBuff);
-        aes_decrypt(recvBuff,msgLength, (unsigned char*)&newNonceA, sizeof(int));
-        printf("recived newNonceA = %i\n",newNonceA);
-
-
-        msgLength = socketRecive(connfd,recvBuff);
-        unsigned char message[256];
-        aes_decrypt(recvBuff,msgLength, message, sizeof(message));
-        printf("recived message: %s\n",message);
-
-
+	/* { reseiveMessage start } */
+	msgLength = recv(connfd, recvBuff, sizeof(recvBuff),0);
+	unsigned char message[256];
+	aes_decrypt(recvBuff,msgLength, message, sizeof(message));
+	printf("Received message: %s\n",message);
+	/* { reseiveMessage end } */
 
 
-        close(connfd);
-        sleep(1);
-     }
+
+
+	close(connfd);
+	sleep(1);
+ }
 }
 

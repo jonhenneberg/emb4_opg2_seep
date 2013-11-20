@@ -11,10 +11,13 @@
 
 #ifndef COMMON_H_
 #define COMMON_H_
+/* { SessionKey start } */
 struct SessionKey{
 	int nonceA;
 	int key;
 };
+/* { SessionKey end } */
+
 int randomNumber();
 int loadKey(ecc_key* key, char* fileName);
 void printCharArray(unsigned char* in, int long length);

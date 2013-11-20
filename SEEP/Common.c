@@ -119,30 +119,26 @@ int ecc_decrypt(unsigned char* in, unsigned long inLength, unsigned char* out, u
 }
 /* { ecc_decrypt end } */
 
+/* { aes_setup start } */
 symmetric_key symKey;
 int my_aes_setup(int tmpKey){
+	if (register_cipher(&aes_desc) == -1) {
+		printf("Error registering aes\n");
+		exit(EXIT_FAILURE);
+	}
+	
 	unsigned char key[32];
 	unsigned long keyLength = 32;
 	hash_memory(hash_index,(unsigned char*)&tmpKey, sizeof(int), key, &keyLength);
 
-	printf("keyLength = %i\n", (int)keyLength);
-	printCharArray(key, keyLength);
-
-	/* register the cipher */
-	if (register_cipher(&aes_desc) == -1) {
-		printf("Error registering Rijndael\n");
-		exit(EXIT_FAILURE);
-	}
-
 	int err;
-
-
 	if ((err = cipher_descriptor[find_cipher("aes")].setup(key, keyLength, 0, &symKey)) != CRYPT_OK) {
 		printf("Error setting up AES ,%i, %s\n",err, error_to_string(err));
 		exit(EXIT_FAILURE);
 	}
 	return 0;
 }
+/* { aes_setup end } */
 int aes_encrypt(unsigned char* in, unsigned long inLength, unsigned char* out, unsigned long* outLength){
 	unsigned char pt[16];
 	int i = 0;

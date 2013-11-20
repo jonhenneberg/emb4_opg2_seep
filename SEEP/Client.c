@@ -70,46 +70,50 @@ int main(int argc, char *argv[])
     loadKey(&decryptKey, "aprivate.key");
 
 	/* { userString start } */
-    printf("Enter message to send\n");
-    unsigned char message[256];
-    fgets((char*)message,256,stdin);
+	printf("Enter message to send\n");
+	unsigned char message[256];
+	fgets((char*)message,256,stdin);
 	/* { userString end } */
 
 	/* { sendNonceA start } */
-    int nonceA = randomNumber();
-    printf("nonceA = %i\n",nonceA);
-    printf("Encrypting nonceA with bpub\n");
-    unsigned char nonceA_enc[2048];
-    unsigned long outLength = 2048;
-    ecc_encrypt((unsigned char*)&nonceA, sizeof(int), nonceA_enc, &outLength,&encryptKey);
-    printf("Sending nonceA\n");
-    write(sockfd, nonceA_enc, outLength);
+	int nonceA = randomNumber();
+	printf("nonceA = %i\n",nonceA);
+	printf("Encrypting nonceA with bpub\n");
+	unsigned char nonceA_enc[2048];
+	unsigned long outLength = 2048;
+	ecc_encrypt((unsigned char*)&nonceA, sizeof(int), nonceA_enc, &outLength,&encryptKey);
+	printf("Sending nonceA\n");
+	write(sockfd, nonceA_enc, outLength);
 	/* { sendNonceA end } */
 
-    unsigned char recvBuff[1024];
-    unsigned long msgLength;
-	msgLength = socketRecive(sockfd,recvBuff);
-	//printf("Received message\n");
-	printCharArray(recvBuff, msgLength);
+	/* { resiveSessionKey start } */
+	unsigned char recvBuff[1024];
+	unsigned long msgLength;
+	msgLength = recv(sockfd, recvBuff, sizeof(recvBuff),0);
 	struct SessionKey sKey;
 	unsigned long inLength = sizeof(struct SessionKey);
 	ecc_decrypt(recvBuff,msgLength,(unsigned char*)&sKey,&inLength,&decryptKey);
 	printf("Received sKey, nonceA = %i, key = %i\n", sKey.nonceA, sKey.key);
+	/* { resiveSessionKey end } */
 
+	/* { resendKey start } */
 	my_aes_setup(sKey.key);
 	sKey.nonceA ++;
 	printf("Sending nonceA = %i encrypted with AES\n", sKey.nonceA);
 	outLength = 2048;
 	aes_encrypt((unsigned char*)&sKey.nonceA,sizeof(int),nonceA_enc, &outLength);
-
 	write(sockfd, nonceA_enc, outLength);
+	/* { resendKey end } */
 
+	/* { sendMessage start } */
 	printf("Sending message encrypted with AES\n");
 	printf("%s", message);
 	outLength = 2048;
 	unsigned char message_enc[2048];
 	aes_encrypt(message, strlen((char*)message), message_enc, &outLength);
 	write(sockfd, message_enc, outLength);
+	/* { sendMessage end } */
+	
 	return -1;
 
 }
